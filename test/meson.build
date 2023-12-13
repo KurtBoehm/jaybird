@@ -3,7 +3,7 @@ opts = options_sub.get_variable('all_opts')
 args = options_sub.get_variable('all_args')
 
 foreach name, info : {
-  'Deserialize': [['deserialize.cpp'], []],
+  'Serialization': [['serialization.cpp'], []],
 }
   sources = info[0]
   deps = info[1]
