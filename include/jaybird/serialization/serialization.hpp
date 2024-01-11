@@ -1,6 +1,7 @@
 #ifndef INCLUDE_JAYBIRD_SERIALIZATION_SERIALIZATION_HPP
 #define INCLUDE_JAYBIRD_SERIALIZATION_SERIALIZATION_HPP
 
+#include <cassert>
 #include <cstddef>
 #include <exception>
 #include <optional>
@@ -15,7 +16,9 @@
 
 #include "nlohmann/json.hpp"
 #include "thesauros/concepts.hpp"
+#include "thesauros/containers.hpp"
 #include "thesauros/macropolis.hpp"
+#include "thesauros/ranges.hpp"
 #include "thesauros/utility.hpp"
 
 #include "jaybird/base.hpp"
@@ -309,6 +312,25 @@ struct JsonConverter<UniVariant<Ts...>> {
       }
     };
     return impl(impl, thes::type_tag<Ts>...);
+  }
+};
+
+template<IsJsonCompatible T, std::size_t tCapacity>
+struct JsonConverter<thes::LimitedArray<T, tCapacity>> {
+  using Arr = thes::LimitedArray<T, tCapacity>;
+
+  static Json to(const Arr& arr) {
+    auto out = Json::array();
+    for (const auto& v : arr) {
+      out.push_back(to_json(v));
+    }
+    return out;
+  }
+
+  static Arr from(const Json& json) {
+    assert(json.size() <= tCapacity);
+    auto trans = thes::transform_range([](auto v) { return from_json<T>(v); }, json);
+    return Arr{trans.begin(), trans.end()};
   }
 };
 } // namespace jay

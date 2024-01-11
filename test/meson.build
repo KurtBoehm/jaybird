@@ -14,7 +14,7 @@ foreach name, info : {
       sources,
       override_options: opts,
       cpp_args: args,
-      dependencies: [jay_dep] + deps,
+      dependencies: [jaybird_dep] + deps,
     ),
   )
 endforeach

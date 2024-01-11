@@ -6,6 +6,7 @@
 #include <variant>
 
 #include "nlohmann/json.hpp"
+#include "thesauros/containers.hpp"
 #include "thesauros/macropolis.hpp"
 #include "thesauros/test.hpp"
 
@@ -132,6 +133,12 @@ int main() {
     auto json2 = R"({"templ5":{"type":"i32","value":"backward","a":5}})"_json;
     const auto value2 = from_json<Type>(json2);
     if (value2.index() != 1) {
+      return 1;
+    }
+
+    thes::LimitedArray<double, 4> arr{1.0, 5.0, 3.0};
+    const auto value3 = from_json<decltype(arr)>(to_json(arr));
+    if (value3 != arr) {
       return 1;
     }
   }
