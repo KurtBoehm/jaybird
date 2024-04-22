@@ -3,6 +3,7 @@
 
 // IWYU pragma: begin_exports
 #include "base.hpp"
+#include "io.hpp"
 #include "serialization.hpp"
 // IWYU pragma: end_exports
 

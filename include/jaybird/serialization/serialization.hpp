@@ -29,12 +29,12 @@ struct JsonConverter;
 template<typename T>
 concept HasJsonConverter = thes::CompleteType<JsonConverter<T>>;
 
-template<IsJsonCompatible T>
+template<JsonCompatible T>
 inline Json to_json(const T& value) {
   return value;
 }
 
-template<IsJsonCompatible T>
+template<JsonCompatible T>
 inline T from_json(const Json& value) {
   return value.get<T>();
 }
@@ -89,7 +89,7 @@ private:
   std::string what_;
 };
 
-template<IsJsonCompatible T>
+template<JsonCompatible T>
 inline std::optional<StaticError> static_check(const Json& json) {
   if constexpr (requires { JsonConverter<T>::static_check(json); }) {
     return JsonConverter<T>::static_check(json);
@@ -205,7 +205,7 @@ struct JsonConverter<T> {
   }
 };
 
-template<IsJsonCompatible T>
+template<JsonCompatible T>
 struct JsonConverter<std::optional<T>> {
   static Json to(const std::optional<T>& value) {
     if (value.has_value()) {
@@ -321,7 +321,7 @@ struct JsonConverter<UniVariant<Ts...>> {
   }
 };
 
-template<IsJsonCompatible T, std::size_t tCapacity>
+template<JsonCompatible T, std::size_t tCapacity>
 struct JsonConverter<thes::LimitedArray<T, tCapacity>> {
   using Arr = thes::LimitedArray<T, tCapacity>;
 
