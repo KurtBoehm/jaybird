@@ -1,8 +1,10 @@
 #ifndef INCLUDE_JAYBIRD_BASE_HPP
 #define INCLUDE_JAYBIRD_BASE_HPP
 
-#include "base/defs.hpp" // IWYU pragma: export
-#include "base/type-info.hpp" // IWYU pragma: export
-#include "base/uni-variant.hpp" // IWYU pragma: export
+// IWYU pragma: begin_exports
+#include "base/defs.hpp"
+#include "base/type-info.hpp"
+#include "base/uni-variant.hpp"
+// IWYU pragma: end_exports
 
 #endif // INCLUDE_JAYBIRD_BASE_HPP

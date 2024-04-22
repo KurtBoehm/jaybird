@@ -5,7 +5,6 @@
 #include <cstddef>
 #include <exception>
 #include <optional>
-#include <sstream>
 #include <stdexcept>
 #include <string>
 #include <string_view>
@@ -17,6 +16,7 @@
 #include "nlohmann/json.hpp"
 #include "thesauros/concepts.hpp"
 #include "thesauros/containers.hpp"
+#include "thesauros/format.hpp"
 #include "thesauros/macropolis.hpp"
 #include "thesauros/ranges.hpp"
 #include "thesauros/utility.hpp"
@@ -29,14 +29,12 @@ struct JsonConverter;
 template<typename T>
 concept HasJsonConverter = thes::CompleteType<JsonConverter<T>>;
 
-template<typename T>
-requires IsJsonCompatible<T>
+template<IsJsonCompatible T>
 inline Json to_json(const T& value) {
   return value;
 }
 
-template<typename T>
-requires IsJsonCompatible<T>
+template<IsJsonCompatible T>
 inline T from_json(const Json& value) {
   return value.get<T>();
 }
@@ -62,8 +60,7 @@ inline T json_fetch(const Json& value, const std::string& key) {
   return JsonFetcher<T>::fetch(value, key);
 }
 
-template<typename T>
-requires HasJsonMembers<T>
+template<HasJsonMembers T>
 struct JsonConverter<T> {
   static Json to(const T& value) {
     return value.to_json();
@@ -74,22 +71,39 @@ struct JsonConverter<T> {
   }
 };
 
-struct StaticError final : public std::exception {
+struct StaticError final {
   StaticError(std::string_view key, const Json& value, const Json& ref_value)
-      : what_((std::stringstream{} << "The value of key " << key << " is " << value << ", not "
-                                   << ref_value << "!")
-                .str()) {}
+      : what_{
+          fmt::format("The value of key {} is {}, not {}!", key, value.dump(), ref_value.dump())} {}
+  explicit StaticError(std::string what) : what_{std::move(what)} {}
 
-  [[nodiscard]] const char* what() const noexcept override {
+  [[nodiscard]] const char* what() const noexcept {
     return what_.c_str();
+  }
+
+  [[nodiscard]] auto exception() const {
+    return std::runtime_error{what_};
   }
 
 private:
   std::string what_;
 };
 
-template<typename T>
-requires HasTypeInfo<T>
+template<IsJsonCompatible T>
+inline std::optional<StaticError> static_check(const Json& json) {
+  if constexpr (requires { JsonConverter<T>::static_check(json); }) {
+    return JsonConverter<T>::static_check(json);
+  } else {
+    try {
+      json.get<T>();
+      return std::nullopt;
+    } catch (const std::exception& ex) {
+      return StaticError{ex.what()};
+    }
+  }
+}
+
+template<HasTypeInfo T>
 struct JsonConverter<T> {
   using Info = thes::TypeInfo<T>;
 
@@ -137,7 +151,7 @@ struct JsonConverter<T> {
 
   static T from(const Json& json) {
     if (const auto err = static_check(json); err.has_value()) {
-      throw *err;
+      throw err->exception();
     }
     return std::apply(
       [&]<typename... TMembers>(TMembers... /*members*/) {
@@ -148,8 +162,7 @@ struct JsonConverter<T> {
   }
 };
 
-template<typename T>
-requires HasEnumInfo<T>
+template<HasEnumInfo T>
 struct JsonConverter<T> {
   using EnumInfo = thes::EnumInfo<T>;
 
@@ -163,11 +176,9 @@ struct JsonConverter<T> {
       if constexpr (sizeof...(tTail) > 0) {
         return rec(rec, std::index_sequence<tTail...>{});
       } else {
-        throw std::invalid_argument(
-          (std::stringstream{} << "The value " << static_cast<std::underlying_type_t<T>>(value)
-                               << " is not a valid value for the enum " << EnumInfo::name.view()
-                               << "!")
-            .str());
+        throw std::invalid_argument{
+          fmt::format("The value {} is not a valid value for the enum {}!",
+                      static_cast<std::underlying_type_t<T>>(value), EnumInfo::name.view())};
       }
     };
     return impl(impl, std::make_index_sequence<std::tuple_size_v<decltype(EnumInfo::values)>>{});
@@ -185,18 +196,16 @@ struct JsonConverter<T> {
       if constexpr (sizeof...(tTail) > 0) {
         return rec(rec, std::index_sequence<tTail...>{});
       } else {
-        throw std::invalid_argument((std::stringstream{} << "The value " << value
-                                                         << " is not a valid value for the enum "
-                                                         << EnumInfo::name.view() << "!")
-                                      .str());
+        throw std::invalid_argument{
+          fmt::format("The value {} is not a valid value for the enum {}!",
+                      static_cast<std::underlying_type_t<T>>(value), EnumInfo::name.view())};
       }
     };
     return impl(impl, std::make_index_sequence<std::tuple_size_v<decltype(EnumInfo::values)>>{});
   }
 };
 
-template<typename T>
-requires IsJsonCompatible<T>
+template<IsJsonCompatible T>
 struct JsonConverter<std::optional<T>> {
   static Json to(const std::optional<T>& value) {
     if (value.has_value()) {
@@ -214,9 +223,20 @@ struct JsonConverter<std::optional<T>> {
 };
 
 template<typename... Ts>
-requires(sizeof...(Ts) > 0 && (... && HasTypeInfo<Ts>))
+requires(sizeof...(Ts) > 0 && (... && thes::HasSerialName<Ts>))
 struct JsonConverter<std::variant<Ts...>> {
   using Var = std::variant<Ts...>;
+
+  static std::string error_msg(const std::vector<StaticError>& errors) {
+    auto msg = fmt::format("This is not a known variant! Keys: {}",
+                           thes::Tuple{thes::serial_name_of<Ts>()...} | thes::star::format);
+    if (!errors.empty()) {
+      msg += fmt::format(
+        "\nErrors that occurred when checking variants with the same name: {}",
+        thes::transform_range([](const StaticError& err) { return err.what(); }, errors));
+    }
+    return msg;
+  }
 
   static Json to(const Var& value) {
     return std::visit(
@@ -239,10 +259,9 @@ struct JsonConverter<std::variant<Ts...>> {
     auto impl = [&]<typename THead, typename... TTail>(auto rec, const THead& /*head*/,
                                                        const TTail&... tail) -> Var {
       using Type = typename THead::Type;
-      using Info = thes::TypeInfo<Type>;
 
-      if (Info::serial_name.view() == key) {
-        if (auto err = JsonConverter<Type>::static_check(value); err.has_value()) {
+      if (thes::serial_name_of<Type>().view() == key) {
+        if (auto err = static_check<Type>(value); err.has_value()) {
           errors.push_back(std::move(*err));
         } else {
           // TODO Always returns the first hit!
@@ -252,19 +271,7 @@ struct JsonConverter<std::variant<Ts...>> {
       if constexpr (sizeof...(TTail) > 0) {
         return rec(rec, tail...);
       } else {
-        using namespace thes::literals;
-
-        std::stringstream stream{};
-        stream << "This is not a known variant! Keys:";
-        (stream << ... << (" “"_sstr + thes::serial_name_of<Ts>() + "”"_sstr).view());
-        if (!errors.empty()) {
-          stream << "\nErrors that occurred when checking variants with the same name:";
-          for (const auto& err : errors) {
-            stream << " “" << err.what() << "”";
-          }
-        }
-
-        throw std::invalid_argument(stream.str());
+        throw std::invalid_argument{error_msg(errors)};
       }
     };
     return impl(impl, thes::type_tag<Ts>...);
@@ -276,6 +283,17 @@ requires(sizeof...(Ts) > 0 && (... && HasTypeInfo<Ts>))
 struct JsonConverter<UniVariant<Ts...>> {
   using Var = UniVariant<Ts...>;
 
+  static std::string error_msg(const std::vector<StaticError>& errors) {
+    auto msg = fmt::format("This is not a known variant! Keys: {}",
+                           thes::Tuple{thes::serial_name_of<Ts>()...} | thes::star::format);
+    if (!errors.empty()) {
+      msg += fmt::format(
+        "\nErrors that occurred when checking variants with the same name: {}",
+        thes::transform_range([](const StaticError& err) { return err.what(); }, errors));
+    }
+    return msg;
+  }
+
   static Json to(const Var& value) {
     return std::visit([]<typename T>(const T& var) { return to_json(var); }, value);
   }
@@ -286,7 +304,7 @@ struct JsonConverter<UniVariant<Ts...>> {
                                                        const TTail&... tail) -> Var {
       using Type = typename THead::Type;
 
-      if (auto err = JsonConverter<Type>::static_check(json); err.has_value()) {
+      if (auto err = static_check<Type>(json); err.has_value()) {
         errors.push_back(std::move(*err));
       } else {
         // TODO Always returns the first hit!
@@ -296,19 +314,7 @@ struct JsonConverter<UniVariant<Ts...>> {
       if constexpr (sizeof...(TTail) > 0) {
         return rec(rec, tail...);
       } else {
-        using namespace thes::literals;
-
-        std::stringstream stream{};
-        stream << "This is not a known variant! Keys:";
-        (stream << ... << (" “"_sstr + thes::serial_name_of<Ts>() + "”"_sstr).view());
-        if (!errors.empty()) {
-          stream << "\nErrors that occurred when checking variants with the same name:";
-          for (const auto& err : errors) {
-            stream << " “" << err.what() << "”";
-          }
-        }
-
-        throw std::invalid_argument(stream.str());
+        throw std::invalid_argument{error_msg(errors)};
       }
     };
     return impl(impl, thes::type_tag<Ts>...);
