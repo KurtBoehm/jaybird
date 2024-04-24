@@ -169,7 +169,7 @@ struct JsonConverter<T> {
   static Json to(const T& value) {
     auto impl = [&]<std::size_t tHead, std::size_t... tTail>(
                   auto rec, std::index_sequence<tHead, tTail...>) THES_ALWAYS_INLINE -> Json {
-      constexpr auto value_info = std::get<tHead>(EnumInfo::values);
+      constexpr auto value_info = thes::star::get_at<tHead>(EnumInfo::values);
       if (value_info.value == value) {
         return value_info.serial_name.view();
       }
@@ -189,7 +189,7 @@ struct JsonConverter<T> {
 
     auto impl = [&]<std::size_t tHead, std::size_t... tTail>(
                   auto rec, std::index_sequence<tHead, tTail...>) THES_ALWAYS_INLINE -> T {
-      constexpr auto value_info = std::get<tHead>(EnumInfo::values);
+      constexpr auto value_info = thes::star::get_at<tHead>(EnumInfo::values);
       if (value_info.serial_name.view() == value) {
         return value_info.value;
       }
