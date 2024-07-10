@@ -111,25 +111,23 @@ struct JsonConverter<T> {
     if constexpr (std::tuple_size_v<decltype(Info::static_members)> == 0) {
       return std::nullopt;
     } else {
-      return std::apply(
-        [&](const auto&... members) {
-          auto impl = [&](auto& rec, const auto& head,
-                          const auto&... tail) -> std::optional<StaticError> {
-            const auto key = head.serial_name.view();
-            const Json& value = json.at(key);
-            const Json ref_value = thes::serial_value(head.value);
-            if (value != ref_value) {
-              return StaticError{key, value, ref_value};
-            }
-            if constexpr (sizeof...(tail) > 0) {
-              return rec(rec, tail...);
-            } else {
-              return std::nullopt;
-            }
-          };
-          return impl(impl, members...);
-        },
-        Info::static_members);
+      return Info::members | thes::star::apply([&](const auto&... members) {
+               auto impl = [&](auto& rec, const auto& head,
+                               const auto&... tail) -> std::optional<StaticError> {
+                 const auto key = head.serial_name.view();
+                 const Json& value = json.at(key);
+                 const Json ref_value = thes::serial_value(head.value);
+                 if (value != ref_value) {
+                   return StaticError{key, value, ref_value};
+                 }
+                 if constexpr (sizeof...(tail) > 0) {
+                   return rec(rec, tail...);
+                 } else {
+                   return std::nullopt;
+                 }
+               };
+               return impl(impl, members...);
+             });
     }
   }
 
@@ -139,12 +137,12 @@ struct JsonConverter<T> {
     auto static_member_impl = [&]<typename... TMembers>(TMembers... /*members*/) {
       ((json[TMembers::serial_name.view()] = thes::serial_value(TMembers::value)), ...);
     };
-    std::apply(static_member_impl, Info::static_members);
+    Info::static_members | thes::star::apply(static_member_impl);
 
     auto member_impl = [&]<typename... TMembers>(TMembers... /*members*/) {
       ((json[TMembers::serial_name.view()] = to_json(value.*TMembers::pointer)), ...);
     };
-    std::apply(member_impl, Info::members);
+    Info::members | thes::star::apply(member_impl);
 
     return json;
   }
@@ -153,12 +151,10 @@ struct JsonConverter<T> {
     if (const auto err = static_check(json); err.has_value()) {
       throw err->exception();
     }
-    return std::apply(
-      [&]<typename... TMembers>(TMembers... /*members*/) {
-        return T(
-          json_fetch<typename TMembers::Type>(json, std::string{TMembers::serial_name.view()})...);
-      },
-      Info::members);
+    return Info::members | thes::star::apply([&]<typename... TMembers>(TMembers... /*members*/) {
+             return T(json_fetch<typename TMembers::Type>(
+               json, std::string{TMembers::serial_name.view()})...);
+           });
   }
 };
 
