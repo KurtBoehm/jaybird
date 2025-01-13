@@ -15,7 +15,7 @@ concept HasJsonMembers = requires(const Json& json, const T& self) {
   { self.to_json() } -> std::same_as<Json>;
 };
 template<typename T>
-concept IsJsonCompatible = requires(const Json& json, const T& self) {
+concept JsonCompatible = requires(const Json& json, const T& self) {
   { Json(self) } -> std::same_as<Json>;
   { json.get<T>() } -> std::same_as<T>;
 };
