@@ -20,17 +20,9 @@ assert subprojects_path.name == "subprojects"
 project_path = subprojects_path.parent
 assert Path.cwd() == project_path
 
-token_path = project_path.joinpath("token.txt")
-if not token_path.exists():
-    print("No token file exists.")
-    url = "git@github.com:Fingolfin1196/tlaxcaltin.git"
-    token = None
-else:
-    with open(token_path, "r") as f:
-        token = f.read().strip()
-    url = f"https://Fingolfin1196:{token}@github.com/Fingolfin1196/tlaxcaltin.git"
+url = "git@github.com:Fingolfin1196/tlaxcaltin.git"
 
-selection_path = project_path.joinpath("subprojects.txt")
+selection_path = project_path / "subprojects.txt"
 selection: set[str] | None
 if not selection_path.exists():
     print("No subprojects file exists.")
@@ -42,8 +34,8 @@ else:
 with TemporaryDirectory() as tmp_dir:
     tmp_path = Path(tmp_dir).resolve()
 
-    package_cache_path = subprojects_path.joinpath("packagecache")
-    packagecache_tmp_path = tmp_path.joinpath("packagecache")
+    package_cache_path = subprojects_path / "packagecache"
+    packagecache_tmp_path = tmp_path / "packagecache"
 
     has_packagecache = package_cache_path.exists()
     if has_packagecache:
@@ -51,8 +43,8 @@ with TemporaryDirectory() as tmp_dir:
 
     rmtree(subprojects_path)
     run(["git", "clone", url, "subprojects"], check=True)
-    rmtree(subprojects_path.joinpath(".git"))
-    rmtree(subprojects_path.joinpath("private"))
+    rmtree(subprojects_path / ".git")
+    rmtree(subprojects_path / "private")
 
     # Remove all subprojects that are not desired
     if selection is not None:
@@ -64,29 +56,27 @@ with TemporaryDirectory() as tmp_dir:
                 if p.stem not in selection:
                     p.unlink()
                     continue
-                if token is None:
-                    continue
-
-                with open(p, "r") as f:
-                    data = f.read().replace(
-                        "git@github.com:Fingolfin1196/",
-                        f"https://Fingolfin1196:{token}@github.com/Fingolfin1196/",
-                    )
-                with open(p, "w") as f:
-                    f.write(data)
             if p.is_dir() and p.name not in fnames | {"packagefiles"}:
                 rmtree(p)
 
         # Remove package files
-        package_files_path = subprojects_path.joinpath("packagefiles")
+        package_files_path = subprojects_path / "packagefiles"
         for p in package_files_path.iterdir():
-            if p.name not in selection:
+            if p.name not in selection | {"patch"}:
                 rmtree(p)
         if len(list(package_files_path.iterdir())) == 0:
             package_files_path.rmdir()
 
+        # Remove patches
+        patch_path = package_files_path / "patch"
+        for p in patch_path.iterdir():
+            if p.stem not in selection:
+                p.unlink()
+        if len(list(patch_path.iterdir())) == 0:
+            patch_path.rmdir()
+
         # Clean up gitignore
-        gitignore_path = subprojects_path.joinpath(".gitignore")
+        gitignore_path = subprojects_path / ".gitignore"
         with open(gitignore_path, "r") as f:
             gitignore = f.readlines()
         new_gitignore = []
