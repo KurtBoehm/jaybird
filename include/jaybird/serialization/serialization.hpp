@@ -192,9 +192,8 @@ struct JsonConverter<T> {
       if constexpr (sizeof...(tTail) > 0) {
         return rec(rec, std::index_sequence<tTail...>{});
       } else {
-        throw std::invalid_argument{
-          fmt::format("The value {} is not a valid value for the enum {}!",
-                      static_cast<std::underlying_type_t<T>>(value), EnumInfo::name.view())};
+        throw std::invalid_argument{fmt::format(
+          "The value {} is not a valid value for the enum {}!", value, EnumInfo::name.view())};
       }
     };
     return impl(impl, std::make_index_sequence<std::tuple_size_v<decltype(EnumInfo::values)>>{});
