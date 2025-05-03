@@ -111,7 +111,7 @@ struct JsonConverter<T> {
     if constexpr (std::tuple_size_v<decltype(Info::static_members)> == 0) {
       return std::nullopt;
     } else {
-      return Info::members | thes::star::apply([&](const auto&... members) {
+      return Info::static_members | thes::star::apply([&](const auto&... members) {
                auto impl = [&](auto& rec, const auto& head,
                                const auto&... tail) -> std::optional<StaticError> {
                  const auto key = head.serial_name.view();

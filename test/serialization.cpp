@@ -10,16 +10,18 @@
 #include "jaybird/jaybird.hpp"
 
 struct Test1 {
-  THES_DEFINE_TYPE(KEEP(Test1), CONSTEXPR_CONSTRUCTOR, (KEEP(a), float),
-                   (KEEP(b), (std::pair<float, int>)), (KEEP(c), int))
+  THES_DEFINE_TYPE(KEEP(Test1), CONSTEXPR_CONSTRUCTOR,
+                   MEMBERS((KEEP(a), float), (KEEP(b), (std::pair<float, int>)), (KEEP(c), int)))
 };
 struct TestTwo {
-  THES_DEFINE_TYPE(SNAKE_CASE(TestTwo), CONSTEXPR_CONSTRUCTOR, (KEEP(a), float, {}),
-                   (KEEP(b), Test1, (Test1{0.0, {2.0, 3}, 1})), (KEEP(c), int, {}))
+  THES_DEFINE_TYPE(SNAKE_CASE(TestTwo), CONSTEXPR_CONSTRUCTOR,
+                   MEMBERS((KEEP(a), float, {}), (KEEP(b), Test1, (Test1{0.0, {2.0, 3}, 1})),
+                           (KEEP(c), int, {})))
 };
 struct Test3 {
-  THES_DEFINE_TYPE(NAMED(Test3, "test_3"), CONSTEXPR_CONSTRUCTOR, (KEEP(a), float, {}),
-                   (KEEP(b), (std::variant<Test1, TestTwo>), ({Test1{0.0, {2.0, 3}, 3}})))
+  THES_DEFINE_TYPE(NAMED(Test3, "test_3"), CONSTEXPR_CONSTRUCTOR,
+                   MEMBERS((KEEP(a), float, {}),
+                           (KEEP(b), (std::variant<Test1, TestTwo>), ({Test1{0.0, {2.0, 3}, 3}}))))
 };
 struct Test4 {
   THES_DEFINE_TYPE(NAMED(Test4, "test_4"), CONSTEXPR_CONSTRUCTOR)
@@ -28,9 +30,9 @@ struct Test4 {
 THES_DEFINE_ENUM(SNAKE_CASE(Direction), bool, LOWERCASE(FORWARD), LOWERCASE(BACKWARD));
 template<Direction tVal, typename TType>
 struct Templ5 {
-  THES_DEFINE_TYPE_EX(SNAKE_CASE(Templ5), CONSTEXPR_CONSTRUCTOR,
-                      STATIC_MEMBERS(("value", tVal), ("type", thes::type_tag<TType>)),
-                      MEMBERS((KEEP(a), int)))
+  THES_DEFINE_TYPE(SNAKE_CASE(Templ5), CONSTEXPR_CONSTRUCTOR,
+                   STATIC_MEMBERS((KEEP(value), tVal), (KEEP(type), thes::type_tag<TType>)),
+                   MEMBERS((KEEP(a), int)))
 
   constexpr bool operator==(const Templ5&) const = default;
 };
