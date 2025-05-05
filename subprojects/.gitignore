@@ -2,9 +2,8 @@
 
 /packagecache/
 
-/argparse-*/
 /expected-*/
 /fmt-*/
-/json-*/
+/nlohmann_json-*/
 /preprocessor-boost-*/
 /unordered_dense-*/
