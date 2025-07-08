@@ -230,7 +230,7 @@ struct JsonConverter<std::variant<Ts...>> {
 
   static std::string error_msg(const std::vector<StaticError>& errors) {
     auto msg = fmt::format("This is not a known variant! Keys: {}",
-                           thes::Tuple{thes::serial_name_of<Ts>()...} | thes::star::format);
+                           thes::Tuple{thes::serial_name_of<Ts>()...});
     if (!errors.empty()) {
       msg += fmt::format(
         "\nErrors that occurred when checking variants with the same name: {}",
@@ -286,7 +286,7 @@ struct JsonConverter<UniVariant<Ts...>> {
 
   static std::string error_msg(const std::vector<StaticError>& errors) {
     auto msg = fmt::format("This is not a known variant! Keys: {}",
-                           thes::Tuple{thes::serial_name_of<Ts>()...} | thes::star::format);
+                           thes::Tuple{thes::serial_name_of<Ts>()...});
     if (!errors.empty()) {
       msg += fmt::format(
         "\nErrors that occurred when checking variants with the same name: {}",
