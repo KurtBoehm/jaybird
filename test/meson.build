@@ -1,5 +1,4 @@
 options_sub = subproject('options')
-opts = options_sub.get_variable('all_opts')
 args = options_sub.get_variable('all_args')
 
 foreach name, info : {
@@ -12,7 +11,6 @@ foreach name, info : {
     executable(
       'Test' + name,
       sources,
-      override_options: opts,
       cpp_args: args,
       dependencies: [jaybird_dep] + deps,
     ),
