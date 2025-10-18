@@ -1,4 +1,4 @@
-project('jaybird', 'cpp', default_options: ['cpp_std=c++20', 'warning_level=3'])
+project('jaybird', 'cpp', default_options: ['cpp_std=c++23', 'warning_level=3'])
 
 fmt_dep = dependency('fmt')
 json_dep = dependency('nlohmann-json')
