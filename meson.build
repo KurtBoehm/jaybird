@@ -1,6 +1,7 @@
 project('jaybird', 'cpp', default_options: ['cpp_std=c++23', 'warning_level=3'])
 
-fmt_dep = dependency('fmt')
+fmt_sub = subproject('fmt', default_options: ['default_library=static'])
+fmt_dep = fmt_sub.get_variable('fmt_dep')
 json_dep = dependency('nlohmann-json')
 thesauros_dep = dependency('thesauros')
 

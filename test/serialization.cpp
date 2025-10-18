@@ -160,7 +160,7 @@ int main() {
       return 1;
     } catch (const std::invalid_argument& ex) {
       THES_ASSERT(
-        thes::test::string_eq(ex.what(), "This is not a known variant! Keys: [i32, f32]"));
+        thes::test::string_eq(ex.what(), "This is not a known variant! Keys: (\"i32\", \"f32\")"));
     }
   }
   fmt::print("\n");
@@ -174,7 +174,7 @@ int main() {
       return 1;
     } catch (const std::invalid_argument& ex) {
       THES_ASSERT(thes::test::string_eq(
-        ex.what(), "This is not a known variant! Keys: [i32, f32]\n"
+        ex.what(), "This is not a known variant! Keys: (\"i32\", \"f32\")\n"
                    "Errors that occurred when checking variants with the same name: "
                    "[\"[json.exception.type_error.302] type must be number, but is string\"]"));
     }
