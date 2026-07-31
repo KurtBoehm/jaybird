@@ -11,6 +11,7 @@
 #include <cstddef>
 #include <exception>
 #include <optional>
+#include <ranges>
 #include <stdexcept>
 #include <string>
 #include <string_view>
@@ -24,8 +25,7 @@
 #include "thesauros/containers.hpp"
 #include "thesauros/format.hpp"
 #include "thesauros/macropolis.hpp"
-#include "thesauros/ranges.hpp"
-#include "thesauros/utility.hpp"
+#include "thesauros/reflection.hpp"
 
 #include "jaybird/base.hpp"
 
@@ -111,7 +111,7 @@ inline std::optional<StaticError> static_check(const Json& json) {
 
 template<HasTypeInfo T>
 struct JsonConverter<T> {
-  using Info = thes::TypeInfo<T>;
+  using Info = thes::reflect::TypeInfo<T>;
 
   static std::optional<StaticError> static_check(const Json& json) {
     if constexpr (std::tuple_size_v<decltype(Info::static_members)> == 0) {
@@ -122,7 +122,7 @@ struct JsonConverter<T> {
                                const auto&... tail) -> std::optional<StaticError> {
                  const auto key = head.serial_name.view();
                  const Json& value = json.at(key);
-                 const Json ref_value = thes::serial_value(head.value);
+                 const Json ref_value = thes::reflect::serial_value(head.value);
                  if (value != ref_value) {
                    return StaticError{key, value, ref_value};
                  }
@@ -141,7 +141,7 @@ struct JsonConverter<T> {
     auto json = Json::object();
 
     auto static_member_impl = [&]<typename... TMembers>(TMembers... /*members*/) {
-      ((json[TMembers::serial_name.view()] = thes::serial_value(TMembers::value)), ...);
+      ((json[TMembers::serial_name.view()] = thes::reflect::serial_value(TMembers::value)), ...);
     };
     Info::static_members | thes::star::apply(static_member_impl);
 
@@ -166,7 +166,7 @@ struct JsonConverter<T> {
 
 template<HasEnumInfo T>
 struct JsonConverter<T> {
-  using EnumInfo = thes::EnumInfo<T>;
+  using EnumInfo = thes::reflect::EnumInfo<T>;
 
   static Json to(const T& value) {
     auto impl = [&]<std::size_t tHead, std::size_t... tTail>(
@@ -224,17 +224,17 @@ struct JsonConverter<std::optional<T>> {
 };
 
 template<typename... Ts>
-requires(sizeof...(Ts) > 0 && (... && thes::HasSerialName<Ts>))
+requires(sizeof...(Ts) > 0 && (... && thes::reflect::HasSerialName<Ts>))
 struct JsonConverter<std::variant<Ts...>> {
   using Var = std::variant<Ts...>;
 
   static std::string error_msg(const std::vector<StaticError>& errors) {
     auto msg = fmt::format("This is not a known variant! Keys: {}",
-                           thes::Tuple{thes::serial_name_of<Ts>()...});
+                           thes::Tuple{thes::reflect::serial_name_of<Ts>()...});
     if (!errors.empty()) {
       msg += fmt::format(
         "\nErrors that occurred when checking variants with the same name: {}",
-        thes::transform_range([](const StaticError& err) { return err.what(); }, errors));
+        errors | std::views::transform([](const StaticError& err) { return err.what(); }));
     }
     return msg;
   }
@@ -242,7 +242,7 @@ struct JsonConverter<std::variant<Ts...>> {
   static Json to(const Var& value) {
     return std::visit(
       []<typename T>(const T& var) {
-        using Info = thes::TypeInfo<T>;
+        using Info = thes::reflect::TypeInfo<T>;
         return Json{{Info::serial_name.view(), to_json(var)}};
       },
       value);
@@ -261,7 +261,7 @@ struct JsonConverter<std::variant<Ts...>> {
                                                        const TTail&... tail) -> Var {
       using Type = typename THead::Type;
 
-      if (thes::serial_name_of<Type>().view() == key) {
+      if (thes::reflect::serial_name_of<Type>().view() == key) {
         if (auto err = static_check<Type>(value); err.has_value()) {
           errors.push_back(std::move(*err));
         } else {
@@ -286,11 +286,11 @@ struct JsonConverter<UniVariant<Ts...>> {
 
   static std::string error_msg(const std::vector<StaticError>& errors) {
     auto msg = fmt::format("This is not a known variant! Keys: {}",
-                           thes::Tuple{thes::serial_name_of<Ts>()...});
+                           thes::Tuple{thes::reflect::serial_name_of<Ts>()...});
     if (!errors.empty()) {
       msg += fmt::format(
         "\nErrors that occurred when checking variants with the same name: {}",
-        thes::transform_range([](const StaticError& err) { return err.what(); }, errors));
+        errors | std::views::transform([](const StaticError& err) { return err.what(); }));
     }
     return msg;
   }
@@ -336,7 +336,7 @@ struct JsonConverter<thes::LimitedArray<T, tCapacity>> {
 
   static Arr from(const Json& json) {
     assert(json.size() <= tCapacity);
-    auto trans = thes::transform_range([](auto v) { return from_json<T>(v); }, json);
+    auto trans = json | std::views::transform([](auto v) { return from_json<T>(v); });
     return Arr{trans.begin(), trans.end()};
   }
 };

@@ -10,7 +10,7 @@
 #include <concepts>
 
 #include "thesauros/concepts.hpp"
-#include "thesauros/macropolis.hpp"
+#include "thesauros/reflection.hpp"
 
 #include "jaybird/base/defs.hpp"
 
@@ -27,9 +27,9 @@ concept JsonCompatible = requires(const Json& json, const T& self) {
 };
 
 template<typename T>
-concept HasTypeInfo = thes::CompleteType<thes::TypeInfo<T>>;
+concept HasTypeInfo = thes::CompleteType<thes::reflect::TypeInfo<T>>;
 template<typename T>
-concept HasEnumInfo = thes::CompleteType<thes::EnumInfo<T>>;
+concept HasEnumInfo = thes::CompleteType<thes::reflect::EnumInfo<T>>;
 } // namespace jay
 
 #endif // INCLUDE_JAYBIRD_BASE_TYPE_INFO_HPP

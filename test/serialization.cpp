@@ -33,7 +33,7 @@ struct Test4 {
   THES_DEFINE_TYPE(NAMED(Test4, "test_4"), CONSTEXPR_CONSTRUCTOR)
 };
 
-THES_DEFINE_ENUM(SNAKE_CASE(Direction), bool, LOWERCASE(FORWARD), LOWERCASE(BACKWARD));
+THES_DEFINE_ENUM(SNAKE_CASE(Direction), bool, LOWERCASE(FORWARD), LOWERCASE(BACKWARD))
 template<Direction tVal, typename TType>
 struct Templ5 {
   THES_DEFINE_TYPE(SNAKE_CASE(Templ5), CONSTEXPR_CONSTRUCTOR,
@@ -44,7 +44,7 @@ struct Templ5 {
 };
 using Test5 = Templ5<Direction::FORWARD, float>;
 
-using Members = std::decay_t<decltype(thes::TypeInfo<Test1>::members)>;
+using Members = std::decay_t<decltype(thes::reflect::TypeInfo<Test1>::members)>;
 using Member0 = std::tuple_element_t<0, Members>;
 inline constexpr auto name = Member0::name;
 inline constexpr auto ptr = Member0::pointer;

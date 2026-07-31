@@ -10,13 +10,13 @@
 #include <type_traits>
 #include <variant>
 
-#include "thesauros/macropolis.hpp"
+#include "thesauros/reflection.hpp"
 
 namespace jay {
 template<typename THead, typename... TTail>
 struct HaveSameSerialNameTrait
-    : public std::bool_constant<(... && (thes::TypeInfo<THead>::serial_name.view() ==
-                                         thes::TypeInfo<TTail>::serial_name.view()))> {};
+    : public std::bool_constant<(... && (thes::reflect::TypeInfo<THead>::serial_name.view() ==
+                                         thes::reflect::TypeInfo<TTail>::serial_name.view()))> {};
 
 template<typename... Ts>
 requires HaveSameSerialNameTrait<Ts...>::value
@@ -27,7 +27,7 @@ struct UniVariant : public std::variant<Ts...> {
 } // namespace jay
 
 template<typename... Ts>
-struct thes::FlattenType<jay::UniVariant<Ts...>> {
+struct thes::reflect::FlattenType<jay::UniVariant<Ts...>> {
   static constexpr auto flatten(std::variant<Ts...>&& value) {
     return flatten_variant(std::move(value));
   }
