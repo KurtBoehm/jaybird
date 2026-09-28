@@ -13,10 +13,10 @@
 #include "thesauros/reflection.hpp"
 
 namespace jay {
-template<typename THead, typename... TTail>
+template<typename Head, typename... Tail>
 struct HaveSameSerialNameTrait
-    : public std::bool_constant<(... && (thes::reflect::TypeInfo<THead>::serial_name.view() ==
-                                         thes::reflect::TypeInfo<TTail>::serial_name.view()))> {};
+    : public std::bool_constant<(... && (thes::reflect::TypeInfo<Head>::serial_name.view() ==
+                                         thes::reflect::TypeInfo<Tail>::serial_name.view()))> {};
 
 template<typename... Ts>
 requires HaveSameSerialNameTrait<Ts...>::value

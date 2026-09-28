@@ -26,6 +26,7 @@
 #include "thesauros/format.hpp"
 #include "thesauros/macropolis.hpp"
 #include "thesauros/reflection.hpp"
+#include "thesauros/types/tuple.hpp"
 
 #include "jaybird/base.hpp"
 
@@ -54,7 +55,7 @@ struct JsonFetcher {
 template<typename T>
 struct JsonFetcher<std::optional<T>> {
   static std::optional<T> fetch(const Json& value, const std::string& key) {
-    auto it = value.find(key);
+    const auto it = value.find(key);
     if (it == value.end()) {
       return std::nullopt;
     }
@@ -80,7 +81,8 @@ struct JsonConverter<T> {
 struct StaticError final {
   StaticError(std::string_view key, const Json& value, const Json& ref_value)
       : what_{
-          fmt::format("The value of key {} is {}, not {}!", key, value.dump(), ref_value.dump())} {}
+          fmt::format("The value of key {} is {}, not {}!", key, value.dump(), ref_value.dump()),
+        } {}
   explicit StaticError(std::string what) : what_{std::move(what)} {}
 
   [[nodiscard]] const char* what() const noexcept {
@@ -140,13 +142,13 @@ struct JsonConverter<T> {
   static Json to(const T& value) {
     auto json = Json::object();
 
-    auto static_member_impl = [&]<typename... TMembers>(TMembers... /*members*/) {
-      ((json[TMembers::serial_name.view()] = thes::reflect::serial_value(TMembers::value)), ...);
+    auto static_member_impl = [&]<typename... Members>(Members... /*members*/) {
+      ((json[Members::serial_name.view()] = thes::reflect::serial_value(Members::value)), ...);
     };
     Info::static_members | thes::star::apply(static_member_impl);
 
-    auto member_impl = [&]<typename... TMembers>(TMembers... /*members*/) {
-      ((json[TMembers::serial_name.view()] = to_json(value.*TMembers::pointer)), ...);
+    auto member_impl = [&]<typename... Members>(Members... /*members*/) {
+      ((json[Members::serial_name.view()] = to_json(value.*Members::pointer)), ...);
     };
     Info::members | thes::star::apply(member_impl);
 
@@ -157,9 +159,9 @@ struct JsonConverter<T> {
     if (const auto err = static_check(json); err.has_value()) {
       throw err->exception();
     }
-    return Info::members | thes::star::apply([&]<typename... TMembers>(TMembers... /*members*/) {
-             return T(json_fetch<typename TMembers::Type>(
-               json, std::string{TMembers::serial_name.view()})...);
+    return Info::members | thes::star::apply([&]<typename... Members>(Members... /*members*/) {
+             return T(json_fetch<typename Members::Type>(
+               json, std::string{Members::serial_name.view()})...);
            });
   }
 };
@@ -169,18 +171,19 @@ struct JsonConverter<T> {
   using EnumInfo = thes::reflect::EnumInfo<T>;
 
   static Json to(const T& value) {
-    auto impl = [&]<std::size_t tHead, std::size_t... tTail>(
-                  auto rec, std::index_sequence<tHead, tTail...>) THES_ALWAYS_INLINE -> Json {
-      constexpr auto value_info = thes::star::get_at<tHead>(EnumInfo::values);
+    auto impl = [&]<std::size_t Head, std::size_t... Tail> [[THES_ALWAYS_INLINE]] (
+                  auto rec, std::index_sequence<Head, Tail...>) -> Json {
+      constexpr auto value_info = thes::star::get_at<Head>(EnumInfo::values);
       if (value_info.value == value) {
         return value_info.serial_name.view();
       }
-      if constexpr (sizeof...(tTail) > 0) {
-        return rec(rec, std::index_sequence<tTail...>{});
+      if constexpr (sizeof...(Tail) > 0) {
+        return rec(rec, std::index_sequence<Tail...>{});
       } else {
         throw std::invalid_argument{
           fmt::format("The value {} is not a valid value for the enum {}!",
-                      static_cast<std::underlying_type_t<T>>(value), EnumInfo::name.view())};
+                      static_cast<std::underlying_type_t<T>>(value), EnumInfo::name.view()),
+        };
       }
     };
     return impl(impl, std::make_index_sequence<std::tuple_size_v<decltype(EnumInfo::values)>>{});
@@ -189,17 +192,19 @@ struct JsonConverter<T> {
   static T from(const Json& json) {
     const std::string& value = json.get<std::string>();
 
-    auto impl = [&]<std::size_t tHead, std::size_t... tTail>(
-                  auto rec, std::index_sequence<tHead, tTail...>) THES_ALWAYS_INLINE -> T {
-      constexpr auto value_info = thes::star::get_at<tHead>(EnumInfo::values);
+    auto impl = [&]<std::size_t Head, std::size_t... Tail> [[THES_ALWAYS_INLINE]] (
+                  auto rec, std::index_sequence<Head, Tail...>) -> T {
+      constexpr auto value_info = thes::star::get_at<Head>(EnumInfo::values);
       if (value_info.serial_name.view() == value) {
         return value_info.value;
       }
-      if constexpr (sizeof...(tTail) > 0) {
-        return rec(rec, std::index_sequence<tTail...>{});
+      if constexpr (sizeof...(Tail) > 0) {
+        return rec(rec, std::index_sequence<Tail...>{});
       } else {
-        throw std::invalid_argument{fmt::format(
-          "The value {} is not a valid value for the enum {}!", value, EnumInfo::name.view())};
+        throw std::invalid_argument{
+          fmt::format("The value {} is not a valid value for the enum {}!", value,
+                      EnumInfo::name.view()),
+        };
       }
     };
     return impl(impl, std::make_index_sequence<std::tuple_size_v<decltype(EnumInfo::values)>>{});
@@ -252,14 +257,14 @@ struct JsonConverter<std::variant<Ts...>> {
     if (json.size() != 1) {
       throw std::invalid_argument("A variant JSON needs to be an object with a single entry!");
     }
-    auto it = json.begin();
+    const auto it = json.begin();
     const auto& key = it.key();
     const auto& value = it.value();
 
     std::vector<StaticError> errors{};
-    auto impl = [&]<typename THead, typename... TTail>(auto rec, const THead& /*head*/,
-                                                       const TTail&... tail) -> Var {
-      using Type = typename THead::Type;
+    const auto impl = [&]<typename Head, typename... Tail>(auto rec, const Head& /*head*/,
+                                                           const Tail&... tail) -> Var {
+      using Type = Head::Type;
 
       if (thes::reflect::serial_name_of<Type>().view() == key) {
         if (auto err = static_check<Type>(value); err.has_value()) {
@@ -269,7 +274,7 @@ struct JsonConverter<std::variant<Ts...>> {
           return from_json<Type>(value);
         }
       }
-      if constexpr (sizeof...(TTail) > 0) {
+      if constexpr (sizeof...(Tail) > 0) {
         return rec(rec, tail...);
       } else {
         throw std::invalid_argument{error_msg(errors)};
@@ -301,9 +306,9 @@ struct JsonConverter<UniVariant<Ts...>> {
 
   static Var from(const Json& json) {
     std::vector<StaticError> errors{};
-    auto impl = [&]<typename THead, typename... TTail>(auto rec, const THead& /*head*/,
-                                                       const TTail&... tail) -> Var {
-      using Type = typename THead::Type;
+    auto impl = [&]<typename Head, typename... Tail>(auto rec, const Head& /*head*/,
+                                                     const Tail&... tail) -> Var {
+      using Type = Head::Type;
 
       if (auto err = static_check<Type>(json); err.has_value()) {
         errors.push_back(std::move(*err));
@@ -312,7 +317,7 @@ struct JsonConverter<UniVariant<Ts...>> {
         return from_json<Type>(json);
       }
 
-      if constexpr (sizeof...(TTail) > 0) {
+      if constexpr (sizeof...(Tail) > 0) {
         return rec(rec, tail...);
       } else {
         throw std::invalid_argument{error_msg(errors)};
@@ -322,9 +327,9 @@ struct JsonConverter<UniVariant<Ts...>> {
   }
 };
 
-template<JsonCompatible T, std::size_t tCapacity>
-struct JsonConverter<thes::LimitedArray<T, tCapacity>> {
-  using Arr = thes::LimitedArray<T, tCapacity>;
+template<JsonCompatible T, std::size_t Capacity>
+struct JsonConverter<thes::LimitedArray<T, Capacity>> {
+  using Arr = thes::LimitedArray<T, Capacity>;
 
   static Json to(const Arr& arr) {
     auto out = Json::array();
@@ -335,8 +340,8 @@ struct JsonConverter<thes::LimitedArray<T, tCapacity>> {
   }
 
   static Arr from(const Json& json) {
-    assert(json.size() <= tCapacity);
-    auto trans = json | std::views::transform([](auto v) { return from_json<T>(v); });
+    assert(json.size() <= Capacity);
+    auto trans = json | std::views::transform([](const auto& v) { return from_json<T>(v); });
     return Arr{trans.begin(), trans.end()};
   }
 };

@@ -33,16 +33,16 @@ struct Test4 {
   THES_DEFINE_TYPE(NAMED(Test4, "test_4"), CONSTEXPR_CONSTRUCTOR)
 };
 
-THES_DEFINE_ENUM(SNAKE_CASE(Direction), bool, LOWERCASE(FORWARD), LOWERCASE(BACKWARD))
-template<Direction tVal, typename TType>
+THES_DEFINE_ENUM(SNAKE_CASE(Direction), bool, KEEP(forward), KEEP(backward))
+template<Direction Value, typename T>
 struct Templ5 {
   THES_DEFINE_TYPE(SNAKE_CASE(Templ5), CONSTEXPR_CONSTRUCTOR,
-                   STATIC_MEMBERS((KEEP(value), tVal), (KEEP(type), thes::type_tag<TType>)),
+                   STATIC_MEMBERS((KEEP(value), Value), (KEEP(type), thes::type_tag<T>)),
                    MEMBERS((KEEP(a), int)))
 
   constexpr bool operator==(const Templ5&) const = default;
 };
-using Test5 = Templ5<Direction::FORWARD, float>;
+using Test5 = Templ5<Direction::forward, float>;
 
 using Members = std::decay_t<decltype(thes::reflect::TypeInfo<Test1>::members)>;
 using Member0 = std::tuple_element_t<0, Members>;
@@ -78,23 +78,23 @@ int main() {
     constexpr Var var2{test2};
 
     {
-      auto json = jay::to_json(var1);
+      const auto json = jay::to_json(var1);
       THES_ASSERT(thes::test::string_eq(R"({"Test1":{"a":0.0,"b":[2.0,3],"c":1}})", json.dump()));
 
-      auto json_out = Json::parse(json.dump());
-      auto test_out = jay::from_json<Var>(json_out);
+      const auto json_out = Json::parse(json.dump());
+      const auto test_out = jay::from_json<Var>(json_out);
       THES_ASSERT(thes::test::string_eq(R"({"Test1":{"a":0.0,"b":[2.0,3],"c":1}})",
                                         jay::to_json(test_out).dump()));
       fmt::print("\n");
     }
 
     {
-      auto json = jay::to_json(var2);
+      const auto json = jay::to_json(var2);
       THES_ASSERT(thes::test::string_eq(
         R"({"test_two":{"a":5.0,"b":{"a":0.0,"b":[2.0,3],"c":1},"c":0}})", json.dump()));
 
-      auto json_out = Json::parse(json.dump());
-      auto test_out = jay::from_json<Var>(json_out);
+      const auto json_out = Json::parse(json.dump());
+      const auto test_out = jay::from_json<Var>(json_out);
       THES_ASSERT(
         thes::test::string_eq(R"({"test_two":{"a":5.0,"b":{"a":0.0,"b":[2.0,3],"c":1},"c":0}})",
                               jay::to_json(test_out).dump()));
@@ -106,12 +106,12 @@ int main() {
     using Var = std::variant<Test1, TestTwo, Test3>;
     constexpr Var var{Test3{}};
 
-    auto json = jay::to_json(var);
+    const auto json = jay::to_json(var);
     THES_ASSERT(thes::test::string_eq(
       R"({"test_3":{"a":0.0,"b":{"Test1":{"a":0.0,"b":[2.0,3],"c":3}}}})", json.dump()));
 
-    auto json_out = Json::parse(json.dump());
-    auto test_out = jay::from_json<Var>(json_out);
+    const auto json_out = Json::parse(json.dump());
+    const auto test_out = jay::from_json<Var>(json_out);
     THES_ASSERT(
       thes::test::string_eq(R"({"test_3":{"a":0.0,"b":{"Test1":{"a":0.0,"b":[2.0,3],"c":3}}}})",
                             jay::to_json(test_out).dump()));
@@ -123,28 +123,28 @@ int main() {
     THES_ASSERT(thes::test::string_eq(R"({"a":3,"type":"f32","value":"forward"})",
                                       jay::to_json(value0a).dump()));
 
-    Json json0{};
+    const Json json0{};
     const auto value0b = jay::from_json<Test5>(jay::to_json(value0a));
     if (value0a != value0b) {
       return 1;
     }
 
-    using Type = std::variant<Templ5<Direction::FORWARD, float>, Templ5<Direction::BACKWARD, int>>;
+    using Type = std::variant<Templ5<Direction::forward, float>, Templ5<Direction::backward, int>>;
 
-    auto json1 = R"({"templ5":{"type":"f32","value":"forward","a":3}})"_json;
+    const auto json1 = R"({"templ5":{"type":"f32","value":"forward","a":3}})"_json;
     const auto value1 = jay::from_json<Type>(json1);
     if (value1.index() != 0) {
       return 1;
     }
 
-    auto json2 = R"({"templ5":{"type":"i32","value":"backward","a":5}})"_json;
+    const auto json2 = R"({"templ5":{"type":"i32","value":"backward","a":5}})"_json;
     const auto value2 = jay::from_json<Type>(json2);
     if (value2.index() != 1) {
       return 1;
     }
 
-    thes::LimitedArray<double, 4> arr{1.0, 5.0, 3.0};
-    const auto value3 = jay::from_json<decltype(arr)>(jay::to_json(arr));
+    const thes::LimitedArray<double, 4> arr{1.0, 5.0, 3.0};
+    const auto value3 = jay::from_json<std::remove_cvref_t<decltype(arr)>>(jay::to_json(arr));
     if (value3 != arr) {
       return 1;
     }
@@ -153,7 +153,7 @@ int main() {
 
   {
     using Type = std::variant<thes::i32, thes::f32>;
-    auto json = R"({"i64":1})"_json;
+    const auto json = R"({"i64":1})"_json;
     THES_ASSERT(thes::test::string_eq(R"({"i64":1})", json.dump()));
     try {
       jay::from_json<Type>(json);
@@ -167,7 +167,7 @@ int main() {
 
   {
     using Type = std::variant<thes::i32, thes::f32>;
-    auto json = R"({"i32":"a"})"_json;
+    const auto json = R"({"i32":"a"})"_json;
     THES_ASSERT(thes::test::string_eq(R"({"i32":"a"})", json.dump()));
     try {
       jay::from_json<Type>(json);
